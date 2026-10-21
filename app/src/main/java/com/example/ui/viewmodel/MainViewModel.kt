@@ -99,6 +99,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _groqStatus = MutableStateFlow("Unchecked")
     val groqStatus: StateFlow<String> = _groqStatus.asStateFlow()
 
+    private val _availableGeminiModels = MutableStateFlow<List<String>>(
+        listOf("gemini-3.8-flash", "gemini-3.5-flash", "gemini-3.1-pro-preview", "gemini-3.1-flash-lite-preview")
+    )
+    val availableGeminiModels: StateFlow<List<String>> = _availableGeminiModels.asStateFlow()
+
+    private val _isFetchingModels = MutableStateFlow(false)
+    val isFetchingModels: StateFlow<Boolean> = _isFetchingModels.asStateFlow()
+
     init {
         // Bind voice engine callbacks
         voiceEngine.onSpeechStarted = {
@@ -131,7 +139,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val prefs = preferences.value
         if (prefs.geminiApiKey.isNotBlank()) {
             val (ok, msg) = aiRepository.validateGeminiKey(prefs.geminiApiKey, prefs.geminiModel)
-            _geminiStatus.value = if (ok) "Ready" else "Error: $msg"
+            _geminiStatus.value = if (ok) "Connected" else "Error: $msg"
+            if (ok) {
+                val (models, _) = aiRepository.fetchAvailableGeminiModels(prefs.geminiApiKey)
+                if (models.isNotEmpty()) {
+                    _availableGeminiModels.value = models
+                }
+            }
         } else {
             _geminiStatus.value = "Not configured"
         }
@@ -451,7 +465,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _geminiStatus.value = "Validating..."
             val (ok, msg) = aiRepository.validateGeminiKey(key, model)
-            _geminiStatus.value = if (ok) "Ready" else "Error: $msg"
+            if (ok) {
+                _geminiStatus.value = "Connected"
+                showNotice("Gemini connected successfully ($model).")
+                fetchGeminiModels(key)
+            } else {
+                _geminiStatus.value = "Error: $msg"
+                showNotice("Gemini connection error: $msg", isError = true)
+            }
+        }
+    }
+
+    fun fetchGeminiModels(key: String) {
+        if (key.isBlank()) return
+        viewModelScope.launch {
+            _isFetchingModels.value = true
+            val (models, err) = aiRepository.fetchAvailableGeminiModels(key)
+            if (models.isNotEmpty()) {
+                _availableGeminiModels.value = models
+                val current = preferences.value.geminiModel
+                if (current !in models) {
+                    val fallback = if ("gemini-3.8-flash" in models) "gemini-3.8-flash" else models.first()
+                    preferencesRepository.updatePreferences { it.copy(geminiModel = fallback) }
+                }
+            } else if (err != null) {
+                Log.w(TAG, "Could not fetch models: $err")
+            }
+            _isFetchingModels.value = false
         }
     }
 

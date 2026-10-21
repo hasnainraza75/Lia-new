@@ -47,11 +47,12 @@ class AiRepository {
     private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()
 
     /**
-     * Validates a Gemini API Key with a small test request.
+     * Validates a Gemini API Key with a real test request and returns (isSuccess, statusMessage).
+     * Displays "Connected" on success.
      */
-    suspend fun validateGeminiKey(apiKey: String, model: String = "gemini-2.5-flash"): Pair<Boolean, String> =
+    suspend fun validateGeminiKey(apiKey: String, model: String = "gemini-3.8-flash"): Pair<Boolean, String> =
         withContext(Dispatchers.IO) {
-            if (apiKey.isBlank()) return@withContext Pair(false, "Gemini API key is empty.")
+            if (apiKey.isBlank()) return@withContext Pair(false, "Gemini API key is not configured.")
             try {
                 val url = "https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey"
                 val bodyJson = JSONObject().apply {
@@ -72,18 +73,130 @@ class AiRepository {
                 client.newCall(request).execute().use { response ->
                     val body = response.body?.string() ?: ""
                     if (response.isSuccessful) {
-                        Pair(true, "Gemini connection ready!")
+                        Pair(true, "Connected")
                     } else {
-                        val errorMsg = try {
-                            JSONObject(body).getJSONObject("error").getString("message")
+                        val parsedError = try {
+                            val errObj = JSONObject(body).optJSONObject("error")
+                            val msg = errObj?.optString("message", "") ?: ""
+                            val status = errObj?.optString("status", "") ?: ""
+                            when {
+                                msg.contains("API_KEY_INVALID", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) ->
+                                    "Invalid API key. Please verify key from Google AI Studio."
+                                status == "PERMISSION_DENIED" || response.code == 403 ->
+                                    "Permission denied. Verify API key permissions in Google AI Studio."
+                                status == "RESOURCE_EXHAUSTED" || response.code == 429 ->
+                                    "Quota limit reached. Please check your Gemini API quota."
+                                status == "NOT_FOUND" || response.code == 404 ->
+                                    "Model '$model' not found or unsupported for this key."
+                                msg.isNotBlank() -> msg.replace(apiKey, "[REDACTED]")
+                                else -> "HTTP ${response.code}: $status"
+                            }
                         } catch (_: Exception) {
-                            "HTTP ${response.code}: $body"
+                            "HTTP ${response.code} error from Gemini."
                         }
-                        Pair(false, errorMsg)
+                        Pair(false, parsedError)
                     }
                 }
             } catch (e: Exception) {
-                Pair(false, e.localizedMessage ?: "Network connection error")
+                val rawMsg = e.localizedMessage ?: "Network connection error"
+                val cleanMsg = rawMsg.replace(apiKey, "[REDACTED]")
+                Pair(false, "Network error: $cleanMsg")
+            }
+        }
+
+    /**
+     * Retrieves the list of available Gemini models for the configured API key.
+     */
+    suspend fun fetchAvailableGeminiModels(apiKey: String): Pair<List<String>, String?> =
+        withContext(Dispatchers.IO) {
+            val defaultModels = listOf(
+                "gemini-3.8-flash",
+                "gemini-3.5-flash",
+                "gemini-3.1-pro-preview",
+                "gemini-3.1-flash-lite-preview"
+            )
+            if (apiKey.isBlank()) return@withContext Pair(defaultModels, "API key required to fetch models.")
+            try {
+                val url = "https://generativelanguage.googleapis.com/v1beta/models?key=$apiKey"
+                val request = Request.Builder().url(url).get().build()
+
+                client.newCall(request).execute().use { response ->
+                    val body = response.body?.string() ?: ""
+                    if (response.isSuccessful) {
+                        val root = JSONObject(body)
+                        val modelsArr = root.optJSONArray("models") ?: JSONArray()
+                        val result = mutableListOf<String>()
+
+                        for (i in 0 until modelsArr.length()) {
+                            val modelObj = modelsArr.getJSONObject(i)
+                            val name = modelObj.optString("name", "")
+                            val cleanName = name.removePrefix("models/")
+                            val supportedMethods = modelObj.optJSONArray("supportedGenerationMethods")
+                            var canGenerate = false
+                            if (supportedMethods != null) {
+                                for (j in 0 until supportedMethods.length()) {
+                                    if (supportedMethods.getString(j) == "generateContent") {
+                                        canGenerate = true
+                                        break
+                                    }
+                                }
+                            }
+                            if (canGenerate && cleanName.startsWith("gemini")
+                                && !cleanName.contains("1.5")
+                                && !cleanName.contains("2.0")
+                                && cleanName != "gemini-pro") {
+                                result.add(cleanName)
+                            }
+                        }
+
+                        // Ensure current stable models are represented
+                        for (def in defaultModels) {
+                            if (!result.contains(def)) {
+                                result.add(def)
+                            }
+                        }
+
+                        // Order models: prioritize gemini-3.8-flash, gemini-3.5-flash, gemini-3.1-pro-preview, etc.
+                        val sorted = result.distinct().sortedWith(Comparator { a, b ->
+                            when {
+                                a == "gemini-3.8-flash" -> -1
+                                b == "gemini-3.8-flash" -> 1
+                                a == "gemini-3.5-flash" -> -1
+                                b == "gemini-3.5-flash" -> 1
+                                a.contains("3.8") -> -1
+                                b.contains("3.8") -> 1
+                                a.contains("3.5") -> -1
+                                b.contains("3.5") -> 1
+                                a.contains("3.1") -> -1
+                                b.contains("3.1") -> 1
+                                else -> a.compareTo(b)
+                            }
+                        })
+                        Pair(sorted, null)
+                    } else {
+                        val err = try {
+                            val errObj = JSONObject(body).optJSONObject("error")
+                            val msg = errObj?.optString("message", "") ?: ""
+                            val status = errObj?.optString("status", "") ?: ""
+                            when {
+                                msg.contains("API_KEY_INVALID", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) ->
+                                    "Invalid API key."
+                                status == "PERMISSION_DENIED" || response.code == 403 ->
+                                    "Permission denied."
+                                status == "RESOURCE_EXHAUSTED" || response.code == 429 ->
+                                    "Quota limit reached."
+                                msg.isNotBlank() -> msg.replace(apiKey, "[REDACTED]")
+                                else -> "HTTP ${response.code}: $status"
+                            }
+                        } catch (_: Exception) {
+                            "HTTP ${response.code}"
+                        }
+                        Pair(defaultModels, err)
+                    }
+                }
+            } catch (e: Exception) {
+                val clean = (e.localizedMessage ?: "Network error fetching models").replace(apiKey, "[REDACTED]")
+                Pair(defaultModels, clean)
             }
         }
 
@@ -281,9 +394,23 @@ class AiRepository {
                 val bodyStr = response.body?.string() ?: ""
                 if (!response.isSuccessful) {
                     val errMsg = try {
-                        JSONObject(bodyStr).getJSONObject("error").getString("message")
+                        val errObj = JSONObject(bodyStr).optJSONObject("error")
+                        val msg = errObj?.optString("message", "") ?: ""
+                        val status = errObj?.optString("status", "") ?: ""
+                        when {
+                            msg.contains("API_KEY_INVALID", ignoreCase = true) || msg.contains("API key not valid", ignoreCase = true) ->
+                                "Invalid API key. Check key in Settings -> Connections."
+                            status == "PERMISSION_DENIED" || response.code == 403 ->
+                                "Permission denied. Please verify your Gemini API key permissions."
+                            status == "RESOURCE_EXHAUSTED" || response.code == 429 ->
+                                "Gemini quota limit reached. Please try again later or check your billing plan."
+                            status == "NOT_FOUND" || response.code == 404 ->
+                                "Model '$model' not found or unsupported for this key."
+                            msg.isNotBlank() -> msg.replace(apiKey, "[REDACTED]")
+                            else -> "HTTP ${response.code}: $status"
+                        }
                     } catch (_: Exception) {
-                        "Error HTTP ${response.code}: $bodyStr"
+                        "Error HTTP ${response.code}"
                     }
                     return AiResponse(
                         replyText = "Error from Gemini: $errMsg",
@@ -313,11 +440,12 @@ class AiRepository {
                 return AiResponse("No response received from Gemini.", isSuccess = false, modelUsed = model)
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Gemini call failed", e)
+            val cleanErr = (e.localizedMessage ?: "Unknown network error").replace(apiKey, "[REDACTED]")
+            Log.e(TAG, "Gemini call failed: $cleanErr")
             return AiResponse(
-                replyText = "Network error connecting to Gemini: ${e.localizedMessage}",
+                replyText = "Network error connecting to Gemini: $cleanErr",
                 isSuccess = false,
-                errorMessage = e.message,
+                errorMessage = cleanErr,
                 modelUsed = model
             )
         }

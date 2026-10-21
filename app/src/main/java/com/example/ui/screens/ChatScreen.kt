@@ -42,6 +42,7 @@ import coil.compose.AsyncImage
 import com.example.data.local.ChatMessageEntity
 import com.example.data.local.DeviceAction
 import com.example.data.local.OrbState
+import com.example.data.local.ProviderType
 import com.example.ui.components.LivingAiOrb
 import com.example.ui.theme.LocalCustomColors
 import com.example.ui.viewmodel.MainViewModel
@@ -173,8 +174,9 @@ fun ChatScreen(
                             fontFamily = FontFamily.Serif,
                             color = colors.textPrimary
                         )
+                        val activeModel = if (preferences.chatProvider == ProviderType.GEMINI) preferences.geminiModel else preferences.groqModel
                         Text(
-                            text = "${preferences.chatProvider.displayName} • ${preferences.personality.displayName}",
+                            text = "${preferences.chatProvider.displayName} ($activeModel) • ${preferences.personality.displayName}",
                             fontSize = 11.sp,
                             color = colors.textMuted
                         )

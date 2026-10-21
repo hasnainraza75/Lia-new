@@ -21,7 +21,7 @@ data class UserPreferences(
     val chatProvider: ProviderType = ProviderType.GEMINI,
     val voiceProvider: ProviderType = ProviderType.GEMINI,
     val geminiApiKey: String = "",
-    val geminiModel: String = "gemini-2.5-flash",
+    val geminiModel: String = "gemini-3.8-flash",
     val groqApiKeys: String = "", // Comma-separated or single key
     val groqModel: String = "llama-3.3-70b-versatile",
     val themeMode: ThemeMode = ThemeMode.DARK_PURPLE,
@@ -82,7 +82,10 @@ class AppPreferencesRepository(context: Context) {
             chatProvider = ProviderType.entries.find { it.name == prefs.getString("chat_provider", null) } ?: ProviderType.GEMINI,
             voiceProvider = ProviderType.entries.find { it.name == prefs.getString("voice_provider", null) } ?: ProviderType.GEMINI,
             geminiApiKey = effectiveGeminiKey,
-            geminiModel = prefs.getString("gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash",
+            geminiModel = run {
+                val saved = prefs.getString("gemini_model", "gemini-3.8-flash") ?: "gemini-3.8-flash"
+                if (saved.contains("2.5") || saved.contains("1.5") || saved.contains("2.0") || saved == "gemini-pro" || saved.isBlank()) "gemini-3.8-flash" else saved
+            },
             groqApiKeys = effectiveGroqKey,
             groqModel = prefs.getString("groq_model", "llama-3.3-70b-versatile") ?: "llama-3.3-70b-versatile",
             themeMode = ThemeMode.entries.find { it.name == prefs.getString("theme_mode", null) } ?: ThemeMode.DARK_PURPLE,

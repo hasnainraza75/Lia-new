@@ -559,7 +559,7 @@ fun ConnectionBadge(
     status: String,
     activeColor: Color
 ) {
-    val isReady = status.contains("Ready", ignoreCase = true)
+    val isReady = status.contains("Connected", ignoreCase = true) || status.contains("Ready", ignoreCase = true)
     val isError = status.contains("Error", ignoreCase = true)
 
     val badgeColor = when {

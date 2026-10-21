@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -43,6 +44,8 @@ fun ConnectionsSettingsScreen(
     val preferences by viewModel.preferences.collectAsState()
     val geminiStatus by viewModel.geminiStatus.collectAsState()
     val groqStatus by viewModel.groqStatus.collectAsState()
+    val availableGeminiModels by viewModel.availableGeminiModels.collectAsState()
+    val isFetchingModels by viewModel.isFetchingModels.collectAsState()
 
     var geminiKeyInput by remember(preferences.geminiApiKey) { mutableStateOf(preferences.geminiApiKey) }
     var geminiKeyVisible by remember { mutableStateOf(false) }
@@ -216,13 +219,60 @@ fun ConnectionsSettingsScreen(
                         singleLine = true
                     )
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Model selector
-                    Text("Gemini Model", fontSize = 12.sp, color = colors.textSecondary)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-1.5-flash").forEach { mod ->
+                    // Model selector header with refresh action
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Gemini Model",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.textSecondary
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.clickable(enabled = !isFetchingModels && geminiKeyInput.isNotBlank()) {
+                                viewModel.fetchGeminiModels(geminiKeyInput.trim())
+                            }
+                        ) {
+                            if (isFetchingModels) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(12.dp),
+                                    strokeWidth = 1.5.dp,
+                                    color = colors.accentCyan
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Filled.Refresh,
+                                    contentDescription = "Refresh models from API",
+                                    tint = if (geminiKeyInput.isNotBlank()) colors.accentCyan else colors.textMuted,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text(
+                                text = if (isFetchingModels) "Fetching..." else "Refresh API Models",
+                                fontSize = 11.sp,
+                                color = if (geminiKeyInput.isNotBlank()) colors.accentCyan else colors.textMuted
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Scrollable dynamic model chips
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        availableGeminiModels.forEach { mod ->
                             val isSel = preferences.geminiModel == mod
                             Surface(
                                 modifier = Modifier
@@ -231,13 +281,60 @@ fun ConnectionsSettingsScreen(
                                         viewModel.preferencesRepository.updatePreferences { it.copy(geminiModel = mod) }
                                     },
                                 color = if (isSel) colors.accentCyan.copy(alpha = 0.2f) else colors.surfaceHighlight,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isSel) colors.accentCyan else Color.Transparent)
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    if (isSel) colors.accentCyan else colors.borderLavender.copy(alpha = 0.3f)
+                                )
                             ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isSel) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = colors.accentCyan,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                    }
+                                    Text(
+                                        text = mod,
+                                        fontSize = 11.sp,
+                                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isSel) colors.accentCyan else colors.textPrimary
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Detailed error message card when validation fails
+                    if (geminiStatus.startsWith("Error:", ignoreCase = true)) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFEF4444).copy(alpha = 0.12f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.4f)),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Warning,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = mod.replace("gemini-", ""),
+                                    text = geminiStatus.removePrefix("Error:").trim(),
                                     fontSize = 11.sp,
-                                    color = if (isSel) colors.accentCyan else colors.textMuted,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                                    color = Color(0xFFFCA5A5),
+                                    lineHeight = 15.sp
                                 )
                             }
                         }
@@ -262,8 +359,9 @@ fun ConnectionsSettingsScreen(
 
                         Button(
                             onClick = {
-                                viewModel.preferencesRepository.updatePreferences { it.copy(geminiApiKey = geminiKeyInput.trim()) }
-                                viewModel.testGeminiKey(geminiKeyInput.trim(), preferences.geminiModel)
+                                val cleanKey = geminiKeyInput.trim()
+                                viewModel.preferencesRepository.updatePreferences { it.copy(geminiApiKey = cleanKey) }
+                                viewModel.testGeminiKey(cleanKey, preferences.geminiModel)
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = colors.accentCyan),
                             modifier = Modifier.testTag("validate_gemini_button")
@@ -393,7 +491,7 @@ fun ConnectionsSettingsScreen(
 
 @Composable
 fun ConnectionStatusTag(status: String, activeColor: Color) {
-    val isReady = status.contains("Ready", ignoreCase = true)
+    val isReady = status.contains("Connected", ignoreCase = true) || status.contains("Ready", ignoreCase = true)
     val isError = status.contains("Error", ignoreCase = true)
     val color = when {
         isReady -> activeColor
