@@ -245,7 +245,7 @@ fun LookFeelSettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text("Ambient Screen Edge Glow", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
-                            Text("Pulses subtle violet & cyan edge lights while LIA is active", fontSize = 11.sp, color = colors.textMuted)
+                            Text("Pulses subtle violet & cyan edge lights while ${preferences.assistantName} is active", fontSize = 11.sp, color = colors.textMuted)
                         }
                         Switch(
                             checked = preferences.ambientEdgeGlow,

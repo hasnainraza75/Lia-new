@@ -161,7 +161,7 @@ fun PhoneControlScreen(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 PermissionStatusCard(
                     title = "Microphone Access",
-                    subtitle = "Required for real-time natural voice conversation with LIA",
+                    subtitle = "Required for real-time natural voice conversation with ${preferences.assistantName}",
                     icon = Icons.Filled.Mic,
                     isGranted = micGranted,
                     onRequest = { micLauncher.launch(Manifest.permission.RECORD_AUDIO) }

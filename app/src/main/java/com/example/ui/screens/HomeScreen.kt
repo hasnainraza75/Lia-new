@@ -411,7 +411,7 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = if (orbState == OrbState.LISTENING) "Done Speaking"
-                            else if (orbState == OrbState.SPEAKING) "Mute LIA"
+                            else if (orbState == OrbState.SPEAKING) "Mute NOVA"
                             else "Voice Talk",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -494,7 +494,7 @@ private val quickActionItems = listOf(
     QuickActionData("msg", "Send Message", "SMS or WhatsApp drafts", Icons.Filled.Send, Color(0xFF38BDF8)),
     QuickActionData("web", "Build Website", "Generate live web code", Icons.Filled.Code, Color(0xFFF5C542)),
     QuickActionData("sketch", "Sketch Photo", "AI visual imagery", Icons.Filled.Brush, Color(0xFFC084FC)),
-    QuickActionData("talk", "Talk to LIA", "Real-time natural voice", Icons.Filled.Mic, Color(0xFFFFD700))
+    QuickActionData("talk", "Talk to NOVA", "Real-time natural voice", Icons.Filled.Mic, Color(0xFFFFD700))
 )
 
 @Composable

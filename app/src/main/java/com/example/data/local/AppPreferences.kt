@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class UserPreferences(
-    val assistantName: String = "LIA",
+    val assistantName: String = "NOVA AI",
     val userDisplayName: String = "Alex",
     val personality: Personality = Personality.WARM_FRIENDLY,
     val customInstructions: String = "",
@@ -69,7 +69,10 @@ class AppPreferencesRepository(context: Context) {
         }
 
         return UserPreferences(
-            assistantName = prefs.getString("assistant_name", "LIA") ?: "LIA",
+            assistantName = run {
+                val n = prefs.getString("assistant_name", "NOVA AI") ?: "NOVA AI"
+                if (n == "LIA" || n.isBlank()) "NOVA AI" else n
+            },
             userDisplayName = prefs.getString("user_display_name", "Alex") ?: "Alex",
             personality = Personality.entries.find { it.name == prefs.getString("personality", null) } ?: Personality.WARM_FRIENDLY,
             customInstructions = prefs.getString("custom_instructions", "") ?: "",

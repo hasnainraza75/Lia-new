@@ -33,6 +33,7 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit
 ) {
     val colors = LocalCustomColors.current
+    val preferences by viewModel.preferences.collectAsState()
     val conversations by viewModel.conversationsList.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -199,7 +200,7 @@ fun HistoryScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Conversations with LIA will be archived here.",
+                            text = "Conversations with ${preferences.assistantName} will be archived here.",
                             fontSize = 12.sp,
                             color = colors.textMuted
                         )

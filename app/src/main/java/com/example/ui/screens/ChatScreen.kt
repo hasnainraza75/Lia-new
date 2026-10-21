@@ -237,7 +237,7 @@ fun ChatScreen(
                                 assistantName = preferences.assistantName,
                                 onCopy = {
                                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                    clipboard.setPrimaryClip(ClipData.newPlainText("LIA Response", message.content))
+                                    clipboard.setPrimaryClip(ClipData.newPlainText("${preferences.assistantName} Response", message.content))
                                     Toast.makeText(context, "Copied to clipboard", Toast.LENGTH_SHORT).show()
                                 },
                                 onShare = {
@@ -245,7 +245,7 @@ fun ChatScreen(
                                         putExtra(Intent.EXTRA_TEXT, message.content)
                                         type = "text/plain"
                                     }
-                                    context.startActivity(Intent.createChooser(sendIntent, "Share LIA Response"))
+                                    context.startActivity(Intent.createChooser(sendIntent, "Share ${preferences.assistantName} Response"))
                                 },
                                 onRetry = {
                                     viewModel.sendChatMessage(message.content, isVoiceTurn = false, context = context)
