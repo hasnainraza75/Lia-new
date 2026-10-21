@@ -156,8 +156,8 @@ jobs:
 #- **Run Number:** ${{ github.run_number }}
 #- **Run Attempt:** ${{ github.run_attempt }}
 #- **Commit SHA:** ${{ github.sha }}
-#
-> **Notice:** This APK is intended for testing and development purposes. It is signed with a temporary debug keystore and is not a Play Store production release."
+
+#> **Notice:** This APK is intended for testing and development purposes. It is signed with a temporary debug keystore and is not a Play Store production release."
 
       - name: Report APK download result
         if: always()
