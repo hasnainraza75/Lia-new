@@ -152,7 +152,6 @@ jobs:
             --target "${{ github.sha }}" \
             --latest \
             --notes "### Automated Debug APK Build
-
 - **Builder:** GitHub Actions
 - **Run Number:** ${{ github.run_number }}
 - **Run Attempt:** ${{ github.run_attempt }}
